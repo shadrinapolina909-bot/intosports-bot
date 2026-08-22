@@ -1,21 +1,26 @@
 import logging
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from datetime import datetime
-import json
-import os
 
+# Логирование
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
+# TOKEN бота
 TOKEN = "8916527707:AAGocCsvT8gPLrRkpTGXJkTP-sWOozsJ6pQ"
 
+# Временное хранилище данных
 users_data = {}
 
+# === ФУНКЦИИ ===
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начало работы с ботом"""
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
 
@@ -52,6 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка кнопок меню"""
     query = update.callback_query
     user_id = query.from_user.id
     await query.answer()
@@ -91,6 +97,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_subscribe(query)
 
 async def choose_location(query, user_id):
+    """Выбор места тренировки"""
     keyboard = [
         [InlineKeyboardButton("🏠 Дома", callback_data="loc_home")],
         [InlineKeyboardButton("🏋️ В зале", callback_data="loc_gym")],
@@ -102,6 +109,7 @@ async def choose_location(query, user_id):
     )
 
 async def get_workout(query, user_id):
+    """Получить тренировку"""
     user = users_data.get(user_id, {})
     goal = user.get("goal", "неизвестно")
 
@@ -122,6 +130,7 @@ async def get_workout(query, user_id):
     await query.edit_message_text(workout, reply_markup=reply_markup)
 
 async def show_progress(query, user_id):
+    """Показать прогресс"""
     user = users_data.get(user_id, {})
     workouts_count = len(user.get("workouts", []))
 
@@ -140,6 +149,7 @@ async def show_progress(query, user_id):
     await query.edit_message_text(progress_text, reply_markup=reply_markup)
 
 async def show_subscribe(query):
+    """Показать варианты подписки"""
     subscribe_text = (
         "💳 ПОДПИСКА\n\n"
         "📌 БАЗОВАЯ - $7/месяц\n"
@@ -164,6 +174,7 @@ async def show_subscribe(query):
     await query.edit_message_text(subscribe_text, reply_markup=reply_markup)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка текстовых сообщений"""
     user_id = update.effective_user.id
     text = update.message.text
 
@@ -173,17 +184,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка ошибок"""
     logger.error(f"Update {update} caused error {context.error}")
 
-def main():
+# === ЗАПУСК БОТА ===
+
+async def main():
+    """Запуск бота"""
     application = Application.builder().token(TOKEN).build()
 
+    # Обработчики команд
     application.add_handler(CommandHandler("start", start))
+
+    # Обработчик кнопок
     application.add_handler(CallbackQueryHandler(button_callback))
+
+    # Обработчик сообщений
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Обработчик ошибок
     application.add_error_handler(error_handler)
 
-    application.run_polling()
+    # Запуск бота
+    async with application:
+        await application.start()
+        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        print("✅ Бот IntoSports запущен и готов! 🚀")
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
